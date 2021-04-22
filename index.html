@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf8" />
+  <style>
+    body {
+      margin: 0;
+    }
+    circle {
+      stroke: #fff;
+    }
+    polygon {
+      fill: steelblue;
+    }
+    text {
+      font-family: "Helvetica Neue", sans-serif;
+      font-size: 20px;
+      pointer-events: none;
+      text-anchor: middle;
+    }
+    text.text-drag {
+      fill: white;
+    }
+    text.hide {
+      opacity: 0;
+      transition: opacity .3s;
+    }
+  </style>
+</head>
+<body>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <script src="https://unpkg.com/geometric@1.0.9/build/geometric.min.js"></script>
+
+  <script>
+    var width = window.innerWidth,
+        height = window.innerHeight,
+        center = [width / 2, height / 2],
+        points = [
+          [center[0] - 100, center[1] - 100],
+          [center[0] + 100, center[1] - 100],
+          [center[0] + 100, center[1] + 100],
+          [center[0] - 100, center[1] + 100]
+        ],
+        dragStartPoint = [0, 0];
+
+    var polygonDrag = d3.drag()
+      .on("start", _ => {
+        dragStartPoint = [event.clientX, event.clientY];
+      })
+      .on("drag", _ => {
+        var dragPoint = [event.clientX, event.clientY];
+
+        points = geometric.polygonTranslate(
+          points, 
+          geometric.lineAngle([dragStartPoint, dragPoint]),
+          geometric.lineLength([dragStartPoint, dragPoint])
+        );
+
+        dragStartPoint = dragPoint;
+
+        update();
+      });
+
+    var handleDrag = d3.drag()
+      .on("start", d => {
+        dragStartPoint = d;
+      })
+      .on("drag", d => {
+        var centroid = geometric.polygonCentroid(points);
+        var dragPoint = [event.clientX, event.clientY];
+
+        points = geometric.polygonRotate(
+          points,
+          geometric.lineAngle([dragPoint, centroid]) - geometric.lineAngle([dragStartPoint, centroid]),
+          centroid          
+        );
+
+        dragStartPoint = dragPoint;
+
+        update();
+      });
+
+    var svg = d3.select("body").append("svg").attr("width", width).attr("height", height);
+    var polygon = svg.append("polygon").call(polygonDrag);
+
+    var dragLabel = svg.append("text")
+        .attr("class", "text-drag")
+        .attr("transform", "translate(" + center + ")")
+        .text("Drag");
+
+    var rotateLabel = svg.selectAll(".text-rotate")
+        .data(points)
+      .enter().append("text")
+        .attr("class", "text-rotate")
+        .attr("transform", (d, i) => "translate(" + d + ") rotate(" + (i === 0 ? -45 : i === 1 ? 45 : i === 2 ? 135 : -135) + ")")
+        .attr("dy", -20)
+        .text("← Rotate →");
+
+    var updateCount = 0;
+    update();
+
+    function update(){
+      updateCount++;
+      if (updateCount === 2){
+        d3.selectAll("text").classed("hide", 1);
+      }
+
+      polygon.attr("points", points);
+
+      var handles = svg.selectAll("circle")
+          .data(points)
+      
+      handles.enter().append("circle")
+          .attr("r", 10)
+        .merge(handles)
+          .attr("transform", d => "translate(" + d + ")")
+          .call(handleDrag);
+    }
+
+  </script>
+</body>
+</html>
